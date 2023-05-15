@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 
 quiz-questions/
+.flake8
