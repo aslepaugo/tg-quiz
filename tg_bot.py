@@ -1,6 +1,7 @@
 import logging
 import os
 import redis
+import re
 
 from dotenv import load_dotenv
 from random import choice
@@ -28,8 +29,16 @@ def reply(update: Update, context: CallbackContext) -> None:
         redis_connection = context.bot_data['redis_connection']
         question, answer = choice(list(quiz.items()))
         update.message.reply_text(question, reply_markup=reply_markup)
-        redis_connection.set(update.message.chat_id, question)
+        redis_connection.set(update.message.chat_id, answer)
         print(redis_connection.get(update.message.chat_id))
+    else:
+        redis_connection = context.bot_data['redis_connection']
+        correct_answer = redis_connection.get(update.message.chat_id)
+        user_answer = update.message.text
+        if user_answer.lower() in correct_answer.lower():
+            update.message.reply_text('Правильно! Поздравляю! Для следующего вопроса нажми «Новый вопрос».')
+        else:
+            update.message.reply_text('Неправильно... Попробуешь ещё раз?')
 
 
 def main():
