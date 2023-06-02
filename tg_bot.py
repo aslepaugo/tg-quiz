@@ -11,7 +11,6 @@ from telegram.ext import CallbackContext, Updater, CommandHandler, MessageHandle
 from quiz_util import open_quiz
 
 
-logger = logging.getLogger(__name__)
 custom_keyboard = [
     ['Новый вопрос', 'Сдаться'],
     ['Мой счет']
