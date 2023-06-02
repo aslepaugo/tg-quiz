@@ -18,7 +18,7 @@ custom_keyboard = [
 ]
 reply_markup = ReplyKeyboardMarkup(custom_keyboard)
 
-NEW_QUESTION, ANSWER = range(2)  # Состояния разговора
+NEW_QUESTION, ANSWER, GIVE_UP = range(3)  # Corrected variable assignments
 
 
 def start(update: Update, context: CallbackContext) -> int:
@@ -30,23 +30,22 @@ def new_question(update: Update, context: CallbackContext) -> int:
     quiz = context.bot_data['quiz']
     redis_connection = context.bot_data['redis_connection']
     question, answer = choice(list(quiz.items()))
-    redis_connection.set(update.message.chat_id, answer)  # Сохраняем правильный ответ в Redis
+    redis_connection.set(update.message.chat_id, answer)  # Save the correct answer in Redis
     update.message.reply_text(question, reply_markup=reply_markup)
     return ANSWER
 
 
 def check_answer(update: Update, context: CallbackContext) -> int:
     redis_connection = context.bot_data['redis_connection']
-    correct_answer = redis_connection.get(update.message.chat_id)  # Получаем правильный ответ из Redis
+    correct_answer = redis_connection.get(update.message.chat_id)  # Get the correct answer from Redis
     user_answer = update.message.text
 
-    # Удаляем пояснения из правильного ответа
-    pattern = r'(.*?)(?:\.\s|\(.+?\))'  # Паттерн для разделения на фразы перед точкой и пояснениями в скобках
+    # Remove explanations from the correct answer
+    pattern = r'(.*?)(?:\.\s|\(.+?\))'  # Pattern to separate phrases before a period and explanations in parentheses
     match = re.match(pattern, correct_answer)
-    print(correct_answer)
     if match:
         correct_answer = match.group(1)
-    print(correct_answer)
+
     if user_answer.lower() == correct_answer.lower():
         update.message.reply_text('Правильно! Поздравляю! Для следующего вопроса нажми «Новый вопрос».')
         return NEW_QUESTION
@@ -54,6 +53,15 @@ def check_answer(update: Update, context: CallbackContext) -> int:
         update.message.reply_text('Неправильно... Попробуешь ещё раз?')
 
     return ANSWER
+
+
+def give_up(update: Update, context: CallbackContext) -> int:
+    redis_connection = context.bot_data['redis_connection']
+    chat_id = update.message.chat_id
+    correct_answer = redis_connection.get(chat_id)
+    update.message.reply_text(f"Правильный ответ: {correct_answer}")
+
+    return NEW_QUESTION
 
 
 def cancel(update: Update, context: CallbackContext) -> int:
@@ -81,7 +89,12 @@ def main():
         entry_points=[CommandHandler('start', start)],
         states={
             NEW_QUESTION: [MessageHandler(Filters.regex('^Новый вопрос$'), new_question)],
-            ANSWER: [MessageHandler(Filters.text & ~Filters.command, check_answer)],
+            ANSWER: [
+                MessageHandler(Filters.regex('^Сдаться$'), give_up),
+                MessageHandler(Filters.text & ~Filters.command, check_answer),
+                
+            ],
+            GIVE_UP: [MessageHandler(Filters.regex('^Сдаться$'), give_up)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
     )
